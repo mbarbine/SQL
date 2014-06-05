@@ -1,0 +1,32 @@
+CREATE PROCEDURE dbo.Groups
+(
+    @MemberName NVARCHAR(256)
+)
+AS
+BEGIN
+    DECLARE @Query NVARCHAR(1024), @Path NVARCHAR(1024)
+
+    SET @Query = '
+        SELECT @Path = distinguishedName
+        FROM OPENQUERY(ADSI, ''
+            SELECT distinguishedName 
+            FROM ''''LDAPDC=domain,DC=com''''
+            WHERE 
+                objectClass = ''''user'''' AND
+                sAMAccountName = '{}'
+        '')
+    '
+    EXEC SP_EXECUTESQL @Query, N'@Path NVARCHAR(1024) OUTPUT', @Path = @Path OUTPUT 
+
+    SET @Query = '
+        SELECT name AS Groups 
+        FROM OPENQUERY(ADSI,''
+            SELECT name 
+            FROM ''''LDAPDC=domain,DC=com''''
+            WHERE 
+                objectClass=''''group'''' AND
+                member=''''' + @Path + '''''
+        '')
+        ORDER BY name
+    '
+    EXEC SP_EXECUTESQL @Query

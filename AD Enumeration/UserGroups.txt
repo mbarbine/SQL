@@ -1,0 +1,31 @@
+CREATE PROCEDURE dbo.Get_ADGroups_ForUser
+(
+    @Username NVARCHAR(256) 
+)
+AS
+BEGIN
+
+    DECLARE @Query NVARCHAR(1024), @Path NVARCHAR(1024)
+
+    SET @Query = '
+        SELECT @Path = distinguishedName
+        FROM OPENQUERY(ADSI, ''
+            SELECT distinguishedName 
+            FROM ''''LDAP://DC=Domain,DC=local''''
+            WHERE 
+                objectClass = ''''user'''' AND
+                sAMAccountName = ''''' + @Username + '''''
+        '')
+    '
+    EXEC SP_EXECUTESQL @Query, N'@Path NVARCHAR(1024) OUTPUT', @Path = @Path OUTPUT 
+
+    -- get all groups for a user
+    -- replace "LDAP://DC=Domain,DC=local" with your own domain
+    SET @Query = '
+        SELECT cn,AdsPath
+        FROM OPENQUERY (ADSI, ''<LDAP://DC=Domain,DC=local>;(&(objectClass=group)(member:1.2.840.113556.1.4.1941:=' + @Path +'));cn, adspath;subtree'')'
+
+    EXEC SP_EXECUTESQL @Query  
+
+END
+GO
